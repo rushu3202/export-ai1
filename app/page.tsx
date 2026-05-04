@@ -16,6 +16,9 @@ export default function Page() {
     try {
       const res = await fetch("/api/export-check", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           product,
           cost: Number(cost),
@@ -26,7 +29,7 @@ export default function Page() {
       const data = await res.json();
       setResult(data);
 
-      // ✅ INSERT INTO SUPABASE (SAFE)
+      // Supabase insert
       const { data: inserted, error } = await supabase
         .from("reports")
         .insert([
@@ -37,8 +40,7 @@ export default function Page() {
             profit: parseFloat(data.profit),
             roi: data.roi,
           },
-        ])
-        .select();
+        ]);
 
       if (error) {
         console.error("❌ INSERT ERROR:", error);
@@ -52,70 +54,134 @@ export default function Page() {
     setLoading(false);
   };
 
-  return (
-    <div style={{ padding: 40 }}>
-      <h1>🚀 Export AI Agent</h1>
+  const downloadInvoice = async () => {
+    const res = await fetch("http://localhost:5000/api/invoice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(result),
+    });
 
-      {/* NAV BUTTON */}
-      <button
-        onClick={() => (window.location.href = "/reports")}
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "invoice.pdf";
+    a.click();
+  };
+
+  const inputStyle = {
+    width: "100%",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 8,
+    border: "1px solid #ddd",
+  };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        background: "#f5f5f5",
+        fontFamily: "sans-serif",
+      }}
+    >
+      <div
         style={{
-          marginBottom: 20,
-          padding: 10,
-          background: "black",
-          color: "white",
-          border: "none",
-          borderRadius: 5,
+          width: "100%",
+          maxWidth: 500,
+          background: "white",
+          padding: 30,
+          borderRadius: 12,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
         }}
       >
-        📊 View Reports History
-      </button>
+        <h1 style={{ fontSize: 24, marginBottom: 10 }}>
+          Check if your product can be exported profitably
+        </h1>
 
-      {/* INPUTS */}
-      <input
-        placeholder="Product"
-        onChange={(e) => setProduct(e.target.value)}
-      />
-      <br /><br />
+        <p style={{ color: "#666", marginBottom: 20 }}>
+          Instant compliance + profit analysis
+        </p>
 
-      <input
-        placeholder="Cost (£)"
-        onChange={(e) => setCost(e.target.value)}
-      />
-      <br /><br />
+        <input
+          placeholder="Product (e.g. leather bags to Germany)"
+          value={product}
+          onChange={(e) => setProduct(e.target.value)}
+          style={inputStyle}
+        />
 
-      <input
-        placeholder="Shipping (£)"
-        onChange={(e) => setShipping(e.target.value)}
-      />
-      <br /><br />
+        <input
+          placeholder="Cost (£)"
+          value={cost}
+          onChange={(e) => setCost(e.target.value)}
+          style={inputStyle}
+        />
 
-      <button onClick={runAnalysis}>
-        {loading ? "Analyzing..." : "Run Analysis"}
-      </button>
+        <input
+          placeholder="Shipping (£)"
+          value={shipping}
+          onChange={(e) => setShipping(e.target.value)}
+          style={inputStyle}
+        />
 
-      {/* RESULT */}
-      {result && (
-        <div style={{ marginTop: 20 }}>
-          <h3>📊 Result</h3>
+        <button
+          onClick={runAnalysis}
+          style={{
+            width: "100%",
+            padding: 12,
+            marginTop: 10,
+            background: "black",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          {loading ? "Running..." : "Check Export"}
+        </button>
 
-          <p>Product: {result.product}</p>
-          <p>Country: {result.country}</p>
-          <p>Status: {result.allowed ? "Allowed" : "Restricted"}</p>
-          <p>HS Code: {result.hs_code}</p>
+        {result && (
+          <div
+            style={{
+              marginTop: 20,
+              padding: 15,
+              borderRadius: 10,
+              background: "#fafafa",
+            }}
+          >
+            <h3>Result</h3>
+            <p><strong>Product:</strong> {result.product}</p>
+            <p><strong>Country:</strong> {result.country}</p>
+            <p>
+              <strong>Status:</strong>{" "}
+              {result.allowed ? "Allowed" : "Restricted"}
+            </p>
+            <p><strong>Profit:</strong> £{result.profit}</p>
+            <p><strong>ROI:</strong> {result.roi}%</p>
 
-          <h4>💰 Profit</h4>
-          <p>Profit: £{result.profit}</p>
-          <p>ROI: {result.roi}</p>
-
-          <h4>📄 Documents</h4>
-          <ul>
-            {result.documents.map((d: string, i: number) => (
-              <li key={i}>{d}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+            <button
+              onClick={downloadInvoice}
+              style={{
+                marginTop: 10,
+                padding: 10,
+                width: "100%",
+                borderRadius: 8,
+                border: "1px solid #ddd",
+                cursor: "pointer",
+              }}
+            >
+              Download Invoice
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
