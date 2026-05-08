@@ -1,16 +1,41 @@
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export async function POST(req: Request) {
-  const { product, cost, shipping } = await req.json();
+  const body = await req.json();
 
-  const sellingPrice = cost * 1.5;
-  const profit = sellingPrice - cost - shipping;
+  const prompt = `
+You are an export business analyst.
 
-  return Response.json({
-    product,
-    country: "Germany",
-    allowed: true,
-    hs_code: "4202",
-    documents: ["Invoice", "Packing List", "Bill of Lading"],
-    profit: profit.toFixed(2),
-    roi: ((profit / cost) * 100).toFixed(1) + "%",
+Analyze this export product:
+
+Product: ${body.product}
+Cost: £${body.cost}
+Shipping: £${body.shipping}
+
+Return JSON only with:
+- country
+- demand
+- competition
+- allowed
+- profit
+- roi
+- verdict
+- reason
+- suggestion
+- duty
+- vat
+`;
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4.1-mini",
+    messages: [{ role: "user", content: prompt }],
   });
+
+  const text = response.choices[0].message.content || "{}";
+
+  return Response.json(JSON.parse(text));
 }
