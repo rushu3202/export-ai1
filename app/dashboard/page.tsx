@@ -5,33 +5,32 @@ import { supabase } from "@/lib/supabase";
 
 export default function Page() {
   const [product, setProduct] = useState("");
+  const [country, setCountry] = useState("");
   const [cost, setCost] = useState("");
   const [shipping, setShipping] = useState("");
+
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  const userId = "guest_user";
 
   const runAnalysis = async () => {
     setLoading(true);
 
-    const userId = "guest_user";
-
-    // 🔒 Check free limit
-    const { count } = await supabase
-      .from("reports")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
-
-    if (count && count >= 3) {
-      const res = await fetch("http://localhost:5000/create-checkout-session", {
-        method: "POST",
-      });
-
-      const data = await res.json();
-      window.location.href = data.url;
-      return;
-    }
-
     try {
+      // FREE LIMIT
+      const { count } = await supabase
+        .from("reports")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId);
+
+      if (count && count >= 3) {
+        alert("Free limit reached.");
+        setLoading(false);
+        return;
+      }
+
+      // API CALL
       const res = await fetch("/api/export-check", {
         method: "POST",
         headers: {
@@ -39,53 +38,67 @@ export default function Page() {
         },
         body: JSON.stringify({
           product,
+          country,
           cost: Number(cost),
           shipping: Number(shipping),
         }),
       });
 
-      const countryData = {
-  Germany: {
-    vat: 19,
-    duty: 6.5,
-    demand: "HIGH",
-  },
-  UAE: {
-    vat: 5,
-    duty: 2,
-    demand: "VERY HIGH",
-  },
-  USA: {
-    vat: 0,
-    duty: 4,
-    demand: "MEDIUM",
-  },
-};
       const data = await res.json();
 
-      // 🔥 PREMIUM LOGIC HERE (CORRECT PLACE)
+      // PREMIUM ANALYSIS
       const enhanced = {
         ...data,
-        duty: data.country === "Germany" ? 6.5 : 4,
-        vat: 19,
+
+        duty:
+          country.toLowerCase() === "germany"
+            ? 6.5
+            : country.toLowerCase() === "usa"
+            ? 3
+            : 4,
+
+        vat:
+          country.toLowerCase() === "germany"
+            ? 19
+            : country.toLowerCase() === "uk"
+            ? 20
+            : 10,
+
         platformFee: 10,
-        trueProfit: (data.profit - 5).toFixed(2),
-        demand: "HIGH",
-        competition: "MEDIUM",
-        verdict: data.profit > 10 ? "RECOMMENDED" : "NOT RECOMMENDED",
+
+        trueProfit: (
+          Number(data.profit) - 5
+        ).toFixed(2),
+
+        demand:
+          product.toLowerCase().includes("makhana")
+            ? "HIGH"
+            : "MEDIUM",
+
+        competition:
+          product.toLowerCase().includes("bags")
+            ? "HIGH"
+            : "MEDIUM",
+
+        verdict:
+          Number(data.profit) > 20
+            ? "RECOMMENDED"
+            : "NOT RECOMMENDED",
+
         reason:
-          data.profit > 10
+          Number(data.profit) > 20
             ? "Healthy margin and stable demand"
             : "Low margin after costs",
+
         suggestion:
-          data.profit > 10
-            ? "Scale this product in EU markets"
-            : "Try UAE or USA for better margins",
+          Number(data.profit) > 20
+            ? "Scale this product in international markets"
+            : "Try different countries or reduce sourcing cost",
       };
 
       setResult(enhanced);
 
-      // 💾 Save to DB
+      // SAVE TO SUPABASE
       await supabase.from("reports").insert([
         {
           user_id: userId,
@@ -98,14 +111,14 @@ export default function Page() {
       ]);
     } catch (err) {
       console.error(err);
+      alert("Something went wrong");
     }
 
     setLoading(false);
   };
 
-  // 📄 DOWNLOAD FUNCTION (MISSING BEFORE)
   const downloadInvoice = async () => {
-    const res = await fetch("http://localhost:5000/api/invoice", {
+    const res = await fetch("https://YOUR-BACKEND-URL/api/invoice", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -118,100 +131,209 @@ export default function Page() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "invoice.pdf";
+    a.download = "export-report.pdf";
     a.click();
   };
 
+  const inputStyle = {
+    width: "100%",
+    padding: 14,
+    marginBottom: 14,
+    borderRadius: 10,
+    border: "1px solid #ddd",
+    fontSize: 15,
+  };
+
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Export Profit Checker</h1>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f5f5f5",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 20,
+        fontFamily: "sans-serif",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 650,
+          background: "white",
+          borderRadius: 20,
+          padding: 30,
+          boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
+        }}
+      >
+        <h1
+          style={{
+            fontSize: 32,
+            marginBottom: 10,
+          }}
+        >
+          Export Profit Analyzer
+        </h1>
 
-      <input
-        placeholder="Product"
-        value={product}
-        onChange={(e) => setProduct(e.target.value)}
-      />
+        <p
+          style={{
+            color: "#666",
+            marginBottom: 30,
+          }}
+        >
+          AI-powered export decision engine
+        </p>
 
-      <input
-        placeholder="Cost"
-        value={cost}
-        onChange={(e) => setCost(e.target.value)}
-      />
+        <input
+          placeholder="Product"
+          value={product}
+          onChange={(e) => setProduct(e.target.value)}
+          style={inputStyle}
+        />
 
-      <input
-        placeholder="Shipping"
-        value={shipping}
-        onChange={(e) => setShipping(e.target.value)}
-      />
+        <input
+          placeholder="Target Country"
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          style={inputStyle}
+        />
 
-      <br /><br />
+        <input
+          placeholder="Product Cost (£)"
+          value={cost}
+          onChange={(e) => setCost(e.target.value)}
+          style={inputStyle}
+        />
 
-      <button onClick={runAnalysis}>
-        {loading ? "Running..." : "Check Export"}
-      </button>
+        <input
+          placeholder="Shipping Cost (£)"
+          value={shipping}
+          onChange={(e) => setShipping(e.target.value)}
+          style={inputStyle}
+        />
 
-      {result && (
-        <div style={{ marginTop: 20 }}>
-
-          {/* Verdict */}
-          <div style={{
+        <button
+          onClick={runAnalysis}
+          style={{
+            width: "100%",
             padding: 15,
-            borderRadius: 10,
-            background: result.verdict === "RECOMMENDED" ? "#e6f7ec" : "#ffecec",
-            marginBottom: 15
-          }}>
-            <h3>
-              {result.verdict === "RECOMMENDED" ? "✅" : "❌"} {result.verdict}
-            </h3>
-            <p>{result.reason}</p>
-            <p><strong>Suggestion:</strong> {result.suggestion}</p>
-          </div>
+            background: "black",
+            color: "white",
+            border: "none",
+            borderRadius: 12,
+            fontSize: 16,
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}
+        >
+          {loading ? "Running Analysis..." : "Check Export"}
+        </button>
 
-          {/* Profit */}
-          <div style={{
-            padding: 15,
-            borderRadius: 10,
-            background: "#fafafa",
-            marginBottom: 15
-          }}>
-            <h3>💰 Profit Breakdown</h3>
-            <p>Base Profit: £{result.profit}</p>
-            <p>Import Duty: {result.duty}%</p>
-            <p>VAT: {result.vat}%</p>
-            <p>Platform Fee: £{result.platformFee}</p>
-            <p><strong>True Profit: £{result.trueProfit}</strong></p>
-          </div>
-
-          {/* Market */}
-          <div style={{
-            padding: 15,
-            borderRadius: 10,
-            background: "#fafafa",
-            marginBottom: 15
-          }}>
-            <h3>🌍 Market Insight</h3>
-            <p>Demand: {result.demand}</p>
-            <p>Competition: {result.competition}</p>
-            <p>Country: {result.country}</p>
-          </div>
-
-          <button
-            onClick={downloadInvoice}
+        {result && (
+          <div
             style={{
-              width: "100%",
-              padding: 12,
-              borderRadius: 8,
-              background: "black",
-              color: "white",
-              border: "none",
-              cursor: "pointer",
+              marginTop: 30,
             }}
           >
-            Download Professional Invoice
-          </button>
+            {/* VERDICT */}
+            <div
+              style={{
+                padding: 20,
+                borderRadius: 14,
+                background:
+                  result.verdict === "RECOMMENDED"
+                    ? "#e8fff0"
+                    : "#fff0f0",
+                marginBottom: 20,
+              }}
+            >
+              <h2>
+                {result.verdict === "RECOMMENDED"
+                  ? "✅ RECOMMENDED"
+                  : "❌ NOT RECOMMENDED"}
+              </h2>
 
-        </div>
-      )}
+              <p>{result.reason}</p>
+
+              <p>
+                <strong>Suggestion:</strong>{" "}
+                {result.suggestion}
+              </p>
+            </div>
+
+            {/* PROFIT */}
+            <div
+              style={{
+                padding: 20,
+                borderRadius: 14,
+                background: "#fafafa",
+                marginBottom: 20,
+              }}
+            >
+              <h3>💰 Profit Breakdown</h3>
+
+              <p>
+                Base Profit: £{result.profit}
+              </p>
+
+              <p>
+                Import Duty: {result.duty}%
+              </p>
+
+              <p>
+                VAT: {result.vat}%
+              </p>
+
+              <p>
+                Platform Fee: £{result.platformFee}
+              </p>
+
+              <p>
+                <strong>
+                  True Profit: £{result.trueProfit}
+                </strong>
+              </p>
+            </div>
+
+            {/* MARKET */}
+            <div
+              style={{
+                padding: 20,
+                borderRadius: 14,
+                background: "#fafafa",
+                marginBottom: 20,
+              }}
+            >
+              <h3>🌍 Market Insight</h3>
+
+              <p>Demand: {result.demand}</p>
+
+              <p>
+                Competition: {result.competition}
+              </p>
+
+              <p>Country: {result.country}</p>
+            </div>
+
+            {/* DOWNLOAD */}
+            <button
+              onClick={downloadInvoice}
+              style={{
+                width: "100%",
+                padding: 15,
+                borderRadius: 12,
+                border: "none",
+                background: "black",
+                color: "white",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              Download Professional Report
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

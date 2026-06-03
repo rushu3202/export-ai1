@@ -4,7 +4,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const { product, cost, shipping } = body;
+    const { product, country, cost, shipping } = body;
 
     // Fake AI logic for now
     const sellPrice = Number(cost) * 2.2;
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     const response = {
       product,
-      country: "Germany",
+      country,
       allowed: true,
       profit,
       roi,
