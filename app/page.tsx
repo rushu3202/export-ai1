@@ -98,9 +98,9 @@ export default function Page() {
           productData?.avgSellingPrice ||
           0,
 
-        recommendedPrice:
-          productData?.recommendedPrice ||
-          0,
+       recommendedPrice:
+  productData?.recommendedSellingPrice || 0,
+          
 
         wholesaleMargin:
           productData?.wholesaleMargin ||
