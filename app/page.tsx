@@ -98,7 +98,8 @@ export default function Page() {
           productData?.avgSellingPrice ||
           0,
 
-       recommendedPrice:
+       
+  recommendedPrice:
   productData?.recommendedSellingPrice || 0,
           
 
