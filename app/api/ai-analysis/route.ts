@@ -11,41 +11,38 @@ export async function POST(req: Request) {
 
     const { product, country } = body;
 
-    const prompt = `
-You are an export market intelligence AI.
-
-Analyze export potential for:
-
-Product: ${product}
-Target Country: ${country}
-
-Give:
-- Market demand
-- Competition level
-- Risks
-- Best strategy
-- Profit potential
-- Recommendation
-
-Keep it concise and professional.
-`;
-
     const completion =
       await openai.chat.completions.create({
         model: "gpt-4.1-mini",
         messages: [
           {
+            role: "system",
+            content:
+              "You are an international export trade expert.",
+          },
+          {
             role: "user",
-            content: prompt,
+            content: `
+Analyze export opportunity for:
+
+Product: ${product}
+Country: ${country}
+
+Provide:
+- demand analysis
+- risks
+- best buyers
+- pricing strategy
+- export opportunity
+- logistics considerations
+            `,
           },
         ],
       });
 
-    const analysis =
-      completion.choices[0].message.content;
-
     return NextResponse.json({
-      analysis,
+      analysis:
+        completion.choices[0].message.content,
     });
   } catch (err) {
     console.log(err);
